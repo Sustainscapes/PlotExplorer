@@ -1,0 +1,15 @@
+Package: PlotExplorer
+Title: Exploring Plot data in Denmark
+Version: 0.0.0.9000
+Authors@R: person('Derek', 'Corcoran', email = 'derek.corcoran@bio.au.dk', role = c('cre', 'aut'))
+Description: Compare plots that you have sampled in Denmark with a database from the Novana Protocol.
+License: MIT + file LICENSE
+Imports: 
+    config,
+    golem,
+    shiny
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 7.1.1
+URL: 
+BugReports: /issues
