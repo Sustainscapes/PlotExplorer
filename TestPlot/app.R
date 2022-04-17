@@ -42,13 +42,18 @@ ui <- fluidPage(
             radioButtons("Comparison",
                          "Choose how to compare",
                          choices = c("Habitat", "Distance")),
-            uiOutput("ComparisonUI")
+            uiOutput("ComparisonUI"),
+            h2("Download report"),
+            downloadButton("report", "Generate report")
         ),
 
         # Show a plot of the generated distribution
         mainPanel(
            leaflet::leafletOutput("Map"),
-           textOutput("Comp")
+           h2("Ellenberg's Indicator Values"),
+           plotly::plotlyOutput(height = "600px", "BoxplotEllemberg"),
+           h2("Diversity measueres"),
+           plotOutput("BoxplotRichness")
         )
     )
 )
@@ -57,26 +62,21 @@ ui <- fluidPage(
 server <- function(input, output, session) {
 
     ## Comparisons UI
-    output$Comp <- renderText({input$Comparison})
-
-
 
     output$ComparisonUI <- renderUI({
 
         if(input$Comparison == "Habitat") {
-            message("Habitat selected")
             selectizeInput("Habitat",
                            label = "Select habitat type",
-                           choices = sort(unique(Base$MajorHab)))
+                           choices = c(sort(unique(Base$habitat_name)), ""),
+                           selected = "")
         }
 
         else if(input$Comparison == "Distance"){
-            message("Distance selected")
             sliderInput("Distance", "Distance in meters:",
-                        min = 300, max = 5000, value = 500
+                        min = 300, max = 10000, value = 500, step = 100
             )
         }
-
 
     })
     ### Selected data
@@ -93,27 +93,82 @@ server <- function(input, output, session) {
 
          if(input$Comparison == "Habitat"){
              CompareTo <- CompareTo %>%
-                 dplyr::filter(MajorHab == input$Habitat) %>%
+                 dplyr::filter(habitat_name == input$Habitat) %>%
                  mutate(Data = "Novana")
+             Data <- rbind(Data, CompareTo) %>%
+                 arrange(desc(Data))
+             list(Data = Data)
+
+         } else if(input$Comparison == "Distance") {
+             TestPointBuffer <- Data %>%
+                 st_buffer(dist = input$Distance) %>%
+                 dplyr::select(Richness)
+
+             CompareTo <- CompareTo %>%
+                 st_crop(TestPointBuffer) %>%
+                 st_intersection(TestPointBuffer) %>%
+                 mutate(Data = "Novana") %>%
+                 dplyr::select(-Richness.1)
+             Data <- rbind(Data, CompareTo) %>%
+                 arrange(desc(Data))
+             list(Data = Data, Buffer = TestPointBuffer)
+
          }
 
-         Data <- rbind(Data, CompareTo) %>%
-             arrange(desc(Data))
-         Data
+
      })
 
 
 
      output$Map <- leaflet::renderLeaflet({
 
-         Categories <- sort(unique(SelectedData()$Data))
+         Categories <- sort(unique(SelectedData()$Data$Data))
 
          factpal <- colorFactor(c("#ef8a62", "#67a9cf"), Categories)
 
 
-         leaflet(data = SelectedData()) %>%
+         l <- leaflet(data = SelectedData()$Data) %>%
              addTiles() %>%
              leaflet::addCircleMarkers(color = ~factpal(Data))
+
+         if(input$Comparison == "Distance"){
+             l <- l %>% leaflet::addPolylines(data = SelectedData()$Buffer, color = "red",
+                                              weight = 1)
+         } else if (input$Comparison != "Distance"){
+             l
+         }
+
+     })
+
+     ## Plots
+
+     output$BoxplotRichness <- renderPlot({
+         ggplot(SelectedData()$Data, aes(x = "Plots", y = Richness)) +
+             geom_boxplot() +
+             geom_jitter(aes(color = Data)) +
+             labs(x = NULL) +
+             theme_bw()
+     })
+
+     output$BoxplotEllemberg <- plotly::renderPlotly({
+         Data <- SelectedData()$Data %>% mutate(N_R = N/R) %>%
+             as.data.frame() %>%
+             dplyr::select(-geometry, -Species, - Richness) %>%
+             pivot_longer(cols = c("L", "N", "T", "K", "F", "R", "S", "N_R"), names_to = "Ellemberg") %>%
+             mutate(Ellemberg = gsub(pattern = "N_R", replacement = "N/R", x = Ellemberg))
+
+         G <- ggplot(Data, aes(x = "Plots", y = value)) +
+             geom_boxplot() +
+             geom_jitter(aes(color = Data)) +
+             labs(x = NULL,
+                  y = "Ellemberg value") +
+             theme_bw() +
+             theme(axis.title.x=element_blank(),
+                   axis.text.x=element_blank(),
+                   axis.ticks.x=element_blank()) +
+             facet_wrap(~Ellemberg, ncol = 1, scales = "free", strip.position = "right") +
+             ggplot2::coord_flip()
+         plotly::ggplotly(G)
      })
     #
     # ## Update the plot input
@@ -135,6 +190,37 @@ server <- function(input, output, session) {
                            choices = Choices,
                            selected = head(Choices, 1)
          )
+
+         ## Generate report
+         output$report <- downloadHandler(
+             # For PDF output, change this to "report.pdf"
+             filename = "report.pdf",
+             content = function(file) {
+                 # Copy the report file to a temporary directory before processing it, in
+                 # case we don't have write permissions to the current working dir (which
+                 # can happen when deployed).
+                 tempReport <- file.path(tempdir(), "report.Rmd")
+                 file.copy("report.Rmd", tempReport, overwrite = TRUE)
+
+                 # Set up parameters to pass to Rmd document
+                 params <- list(Comparison = input$Comparison,
+                                Group = input$Group,
+                                Plot = input$Plot,
+                                Habitat = input$Habitat,
+                                Distance = input$Distance,
+                                Data = SelectedData()$Data)
+
+                 # Knit the document, passing in the `params` list, and eval it in a
+                 # child of the global environment (this isolates the code in the document
+                 # from the code in this app).
+                 rmarkdown::render(tempReport, output_file = file,
+                                   params = params,
+                                   envir = new.env(parent = globalenv())
+                 )
+             }
+         )
+         ###
+
      })
 }
 

@@ -1,0 +1,68 @@
+---
+title: "Dynamic report"
+date: "`r Sys.Date()`"
+output:
+  bookdown::pdf_document2:
+    keep_tex: false
+    fig_caption: true
+    toc: false
+params:
+  Group: NA
+  Comparison: NA
+  Habitat: NA
+  Distance: NA
+  Data: NA
+  Plot: NA
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, error = FALSE, cache = TRUE)
+# For data wrangling
+library(tidyverse)
+# To get model parameters
+library(kableExtra)
+```
+
+```{r paragraph1, echo = FALSE}
+if (params$Comparison == "Habitat"){
+Paragraph1 <- paste("A comparison was made using", base::tolower(params$Comparison), "as basis with", params$Habitat, "as point of comparison.") 
+} else if (params$Comparison == "Distance"){
+  Paragraph1 <- paste("A comparison was made using", base::tolower(params$Comparison), "as basis with", prettyNum(params$Distance, big.mark = ","), "meters to select nearby point for comparison.")
+}
+```
+
+This is a report generated for group `r params$Group`. `r Paragraph1` The selected plot is `r params$Plot`. This generated a comparison with `r prettyNum(nrow(params$Data), big.mark = ",")` plots.
+
+In plot \@ref(fig:EllembergBoxplot) we can see how the selected site compares in ellemberg values to the selected plots from NOVANA.
+
+In plot \@ref(fig:RichnessBoxplot) we can see how the selected site compares in richness to the selected plots from NOVANA.
+
+```{r EllembergBoxplot, fig.cap= "Comparison of ellemberg values between selected plots"}
+Data <- params$Data %>% mutate(N_R = N/R) %>%
+             as.data.frame() %>%
+             dplyr::select(-geometry, -Species, - Richness) %>%
+             pivot_longer(cols = c("L", "N", "T", "K", "F", "R", "S", "N_R"), names_to = "Ellemberg") %>%
+             mutate(Ellemberg = gsub(pattern = "N_R", replacement = "N/R", x = Ellemberg))
+
+         ggplot(Data, aes(x = "Plots", y = value)) +
+             geom_boxplot() +
+             geom_jitter(aes(color = Data)) +
+             labs(x = NULL,
+                  y = "Ellemberg value") +
+             theme_bw() +
+             theme(axis.title.x=element_blank(),
+                   axis.text.x=element_blank(),
+                   axis.ticks.x=element_blank()) +
+             facet_wrap(~Ellemberg, ncol = 1, scales = "free", strip.position = "right") 
+```
+
+
+```{r RichnessBoxplot, fig.cap= "Comparison of species richness between selected plots"}
+ggplot(params$Data, aes(x = "Plots", y = Richness)) +
+             geom_boxplot() +
+             geom_jitter(aes(color = Data)) +
+             labs(x = NULL) +
+             theme_bw()
+```
+
+

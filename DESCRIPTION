@@ -11,6 +11,7 @@ BugReports: /issues
 Imports: 
     config,
     golem,
+    pkgload,
     shiny
 Suggests: 
     spelling,
