@@ -82,7 +82,7 @@ Final <- Final %>% purrr::reduce(c)
 PlotSppNames$SpeciesButton <- Final
 PlotSppNames <- PlotSppNames %>% dplyr::select(-Species)
 
-NMDS <- readRDS("/home/derek/Documents/Danish-Flora-and-Vegetation.github.io/MapAndnmds/NMDSplots.rds")
+#NMDS <- readRDS("/home/derek/Documents/Danish-Flora-and-Vegetation.github.io/MapAndnmds/NMDSplots.rds")
 
 result <- Test %>%
   right_join(PlotSppList) %>%
@@ -95,7 +95,10 @@ result <- Test %>%
 ARTS <- list()
 
 for(i in 1:nrow(result)){
-  try({ARTS[[i]] <- suppressMessages(Artscore(ScientificName = result$Species[i][[1]]$LatArt, Habitat_code = result$habtype[i])$Artsindex)})
+  try({ARTS[[i]] <- suppressMessages(Artscore(ScientificName = result$Species[i][[1]]$LatArt, Habitat_code = result$habtype[i])$Artsindex)}, silent = T)
+  if(i %% 100 == 0){
+    message(paste(i, "of", nrow(result), "ready", Sys.time()))
+  }
 }
 
 cond <- ARTS %>% purrr::map(class) %>% reduce(c)
@@ -119,6 +122,8 @@ TestSp <-sort(Ellemberg$scientific_name[!(Ellemberg$scientific_name %in% Species
 
 TestSp <- data.frame(Ellemberg  = TestSp, Spp2 = NA, Score = NA)
 
+library(stringdist)
+
 for(i in 1:nrow(TestSp)){
   TestSp$Score[i] <- min(stringdist(a = TestSp$Ellemberg[i], b = Species_List$Scientific_name, method = "cosine"))
   TestSp$Spp2[i] <- Species_List$Scientific_name[stringdist(a = TestSp$Ellemberg[i], b = Species_List$Scientific_name, method = "cosine") == min(stringdist(a = TestSp$Ellemberg[i], b = Species_List$Scientific_name, method = "cosine"))]
@@ -134,35 +139,44 @@ for(i in 1:nrow(TestSp)){
 Temp <- list()
 
 for(i in 1:nrow(result)){
-  Temp[[i]] <- result[i,] %>% unnest(cols = "Species") %>%
-    rename(scientific_name = LatArt) %>%
-    left_join(Ellemberg) %>%
-    select("plot", "MajorHab", "Richness", "habtype",
-           "SpeciesButton", "geometry", "Artsindex",
-           "eiv_l", "eiv_f", "eiv_r", "eiv_n", "grime_strategy", "grime_c",
-           "grime_s", "grime_r","eiv_n_r_ratio")
-  Temp[[i]] <- Temp[[i]] %>% group_by(plot, MajorHab) %>%
-    summarise(L = median(eiv_l, na.rm = T), f =median(eiv_f, na.rm = T), R = median(eiv_r, na.rm = T), N = median(eiv_n, na.rm = T), N_R = median(eiv_n_r_ratio, na.rm = T), grime_C = median(grime_c, na.rm = T),
-              grime_S = median(grime_s, na.rm = T), grime_R= median(grime_r, na.rm = T)) %>% ungroup()
+  suppressMessages({
+    Temp[[i]] <- result[i,] %>% unnest(cols = "Species") %>%
+      rename(scientific_name = LatArt) %>%
+      left_join(Ellemberg) %>%
+      select("plot", "MajorHab", "Richness", "habtype",
+             "SpeciesButton", "geometry", "Artsindex",
+             "eiv_l", "eiv_f", "eiv_r", "eiv_n", "grime_strategy", "grime_c",
+             "grime_s", "grime_r","eiv_n_r_ratio")
+    Temp[[i]] <- Temp[[i]] %>% group_by(plot, MajorHab) %>%
+      summarise(L = median(eiv_l, na.rm = T), f =median(eiv_f, na.rm = T), R = median(eiv_r, na.rm = T), N = median(eiv_n, na.rm = T), N_R = median(eiv_n_r_ratio, na.rm = T), grime_C = median(grime_c, na.rm = T),
+                grime_S = median(grime_s, na.rm = T), grime_R= median(grime_r, na.rm = T)) %>% ungroup()
+  })
+  if(i %% 500 == 0){
+    message(paste(i, "of", nrow(result), "ready", Sys.time()))
+  }
 }
 
 Temp <- Temp %>%
   purrr::reduce(bind_rows)
 
+Temp <- Temp %>%
+  as.data.frame() %>%
+  dplyr::select(-geometry)
+
 #####
-  right_join(NMDS) %>%
+result <- result %>%
+  right_join(Temp) %>%
   st_transform("+proj=longlat +datum=WGS84") %>%
   dplyr::distinct() %>%
-  dplyr::select(-year, -CheckPoint) %>%
   dplyr::filter(!is.na(MajorHab))
 
 
 
-Habitat2 <- Habitat_List %>% rename(habtype = Code) %>% mutate(habtype  = as.numeric(habtype))
+Habitat2 <- Habitat_List %>% rename(habtype = Code)
 
 result <- result %>% left_join(Habitat2)
 
-
+result <- result %>% rename(F = f)
 set.seed(2022)
 
 BaseIndex <- sample(1:nrow(result), size = 100)

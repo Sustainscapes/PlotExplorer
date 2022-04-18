@@ -74,7 +74,7 @@ server <- function(input, output, session) {
 
         else if(input$Comparison == "Distance"){
             sliderInput("Distance", "Distance in meters:",
-                        min = 300, max = 10000, value = 500, step = 100
+                        min = 300, max = 2000, value = 500, step = 100
             )
         }
 
@@ -154,7 +154,7 @@ server <- function(input, output, session) {
          Data <- SelectedData()$Data %>% mutate(N_R = N/R) %>%
              as.data.frame() %>%
              dplyr::select(-geometry, -Species, - Richness) %>%
-             pivot_longer(cols = c("L", "N", "T", "K", "F", "R", "S", "N_R"), names_to = "Ellemberg") %>%
+             pivot_longer(cols = c("L", "F", "R", "N", "N_R"), names_to = "Ellemberg") %>%
              mutate(Ellemberg = gsub(pattern = "N_R", replacement = "N/R", x = Ellemberg))
 
          G <- ggplot(Data, aes(x = "Plots", y = value)) +
