@@ -1,32 +1,40 @@
-library(shiny)
+library(ggtern)
 
-shinyApp(
-  ui = fluidPage(
-    sliderInput("slider", "Slider", 1, 100, 50),
-    downloadButton("Report", "Generate Report")
-  ),
-  server = function(input, output) {
-    output$Report <- downloadHandler(
-      # For PDF output, change this to "Report.pdf"
-      filename = "Report.html",
-      content = function(file) {
-        # Copy the Report file to a temporary directory before processing it, in
-        # case we don't have write permissions to the current working dir (which
-        # can happen when deployed).
-        tempReport <- file.path(tempdir(), "Report.Rmd")
-        file.copy("Report.Rmd", tempReport, overwrite = TRUE)
+axis <- function(title) {
 
-        # Set up parameters to pass to Rmd document
-        params <- list(n = input$slider)
+  list(
 
-        # Knit the document, passing in the `params` list, and eval it in a
-        # child of the global environment (this isolates the code in the document
-        # from the code in this app).
-        rmarkdown::render(tempReport, output_file = file,
-                          params = params,
-                          envir = new.env(parent = globalenv())
-        )
-      }
-    )
-  }
-)
+    title = title,
+
+    titlefont = list(
+
+      size = 20
+
+    ),
+
+    tickfont = list(
+
+      size = 15
+
+    ),
+
+    tickcolor = 'rgba(0,0,0,0)',
+
+    ticklen = 5
+
+  )
+
+}
+
+
+Data <- Base %>%
+  as.data.frame() %>%
+  dplyr::select(-geometry)
+
+Data$Data <- sample(LETTERS[c(1,2)], size = nrow(Data), replace = T, prob = c(0.9, 0.1))
+
+
+G <- ggtern(data = Data, aes(x = grime_R, y = grime_C, z = grime_S)) +
+  geom_point(aes(color = rgb, size = Data), alpha = 0.5) + scale_color_identity() + ggtern::theme_rgbw() +
+  zlab('Stress tolerator') + xlab('Ruderal') + ylab('Competitor')
+

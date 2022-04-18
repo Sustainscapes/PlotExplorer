@@ -1,4 +1,4 @@
-#
+
 # This is a Shiny web application. You can run the application by clicking
 # the 'Run App' button above.
 #
@@ -15,6 +15,7 @@ library(ggplot2)
 library(plotly)
 library(highcharter)
 library(dplyr)
+library(ggtern)
 
 Base <- readRDS("Base.rds")
 
@@ -49,11 +50,14 @@ ui <- fluidPage(
 
         # Show a plot of the generated distribution
         mainPanel(
-           leaflet::leafletOutput("Map"),
-           h2("Ellenberg's Indicator Values"),
-           plotly::plotlyOutput(height = "600px", "BoxplotEllemberg"),
-           h2("Diversity measueres"),
-           plotOutput("BoxplotRichness")
+            shiny::tabsetPanel(tabPanel(title = "Map",
+                                        leaflet::leafletOutput("Map")),
+                               tabPanel(title = "Ellenberg's Indicator Values",
+                                        plotly::plotlyOutput(height = "600px", "BoxplotEllemberg")),
+                               tabPanel(title = "Diversity measueres",
+                                        plotOutput("BoxplotRichness")),
+                               tabPanel(title = "Grime values",
+                                        plotOutput("GGTernPlot")))
         )
     )
 )
@@ -96,7 +100,8 @@ server <- function(input, output, session) {
                  dplyr::filter(habitat_name == input$Habitat) %>%
                  mutate(Data = "Novana")
              Data <- rbind(Data, CompareTo) %>%
-                 arrange(desc(Data))
+                 arrange(desc(Data)) %>%
+                 dplyr::mutate(Data = fct_relevel(Data, "Group", "Novana"))
              list(Data = Data)
 
          } else if(input$Comparison == "Distance") {
@@ -110,7 +115,8 @@ server <- function(input, output, session) {
                  mutate(Data = "Novana") %>%
                  dplyr::select(-Richness.1)
              Data <- rbind(Data, CompareTo) %>%
-                 arrange(desc(Data))
+                 arrange(desc(Data)) %>%
+                 dplyr::mutate(Data = fct_relevel(Data, "Group", "Novana"))
              list(Data = Data, Buffer = TestPointBuffer)
 
          }
@@ -129,7 +135,7 @@ server <- function(input, output, session) {
 
          l <- leaflet(data = SelectedData()$Data) %>%
              addTiles() %>%
-             leaflet::addCircleMarkers(color = ~factpal(Data))
+             leaflet::addCircleMarkers(color = ~factpal(Data), popup = ~SpeciesButton)
 
          if(input$Comparison == "Distance"){
              l <- l %>% leaflet::addPolylines(data = SelectedData()$Buffer, color = "red",
@@ -145,13 +151,13 @@ server <- function(input, output, session) {
      output$BoxplotRichness <- renderPlot({
          ggplot(SelectedData()$Data, aes(x = "Plots", y = Richness)) +
              geom_boxplot() +
-             geom_jitter(aes(color = Data)) +
+             geom_jitter(aes(color = Data, alpha = 0.5)) +
              labs(x = NULL) +
              theme_bw()
      })
 
      output$BoxplotEllemberg <- plotly::renderPlotly({
-         Data <- SelectedData()$Data %>% mutate(N_R = N/R) %>%
+         Data <- SelectedData()$Data  %>%
              as.data.frame() %>%
              dplyr::select(-geometry, -Species, - Richness) %>%
              pivot_longer(cols = c("L", "F", "R", "N", "N_R"), names_to = "Ellemberg") %>%
@@ -159,16 +165,30 @@ server <- function(input, output, session) {
 
          G <- ggplot(Data, aes(x = "Plots", y = value)) +
              geom_boxplot() +
-             geom_jitter(aes(color = Data)) +
+             geom_jitter(aes(color = Data), alpha = 0.5) +
              labs(x = NULL,
                   y = "Ellemberg value") +
              theme_bw() +
-             theme(axis.title.x=element_blank(),
-                   axis.text.x=element_blank(),
-                   axis.ticks.x=element_blank()) +
              facet_wrap(~Ellemberg, ncol = 1, scales = "free", strip.position = "right") +
+             theme(axis.title.y=element_blank(), axis.text.y=element_blank(),
+                   axis.ticks.y=element_blank())  +
              ggplot2::coord_flip()
          plotly::ggplotly(G)
+     })
+
+     ### Ternary outputs
+
+
+     output$GGTernPlot <- renderPlot({
+         Data <- SelectedData()$Data %>%
+             as.data.frame() %>%
+             dplyr::select(-geometry) %>%
+             arrange(desc(Data)) %>%
+             mutate(Data = fct_relevel(Data, "Novana", "Group"))
+
+         print(ggtern(data = Data, aes(x = grime_R, y = grime_C, z = grime_S)) +
+             geom_point(aes(color = rgb, size = Data, shape = Data), alpha = 0.5) + scale_color_identity() + ggtern::theme_rgbw() +
+             zlab('Stress tolerator') + xlab('Ruderal') + ylab('Competitor'))
      })
     #
     # ## Update the plot input

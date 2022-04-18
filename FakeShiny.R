@@ -177,6 +177,9 @@ Habitat2 <- Habitat_List %>% rename(habtype = Code)
 result <- result %>% left_join(Habitat2)
 
 result <- result %>% rename(F = f)
+
+result$rgb <- Tricolore(result, "grime_C", "grime_S", "grime_R", center = NA, breaks = 5, hue = 0.4, chroma = 1, lightness = 0.7, contrast = 0.3, spread = 1.2, legend = FALSE, show_data = TRUE, show_center = FALSE, label_as = "pct")
+
 set.seed(2022)
 
 BaseIndex <- sample(1:nrow(result), size = 100)
