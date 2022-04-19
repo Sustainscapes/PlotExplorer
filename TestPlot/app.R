@@ -13,9 +13,11 @@ library(DT)
 library(tibble)
 library(ggplot2)
 library(plotly)
-library(highcharter)
 library(dplyr)
 library(ggtern)
+library(sf)
+library(forcats)
+library(tidyr)
 
 Base <- readRDS("Base.rds")
 
@@ -25,7 +27,7 @@ Groups <- readRDS("Groups.rds")
 ui <- fluidPage(
 
     # Application title
-    titlePanel("Plot Compraison app"),
+    titlePanel("Plot Comparison app"),
 
     # Sidebar with a slider input for number of bins
     sidebarLayout(
@@ -54,8 +56,8 @@ ui <- fluidPage(
                                         leaflet::leafletOutput("Map")),
                                tabPanel(title = "Ellenberg's Indicator Values",
                                         plotly::plotlyOutput(height = "600px", "BoxplotEllemberg")),
-                               tabPanel(title = "Diversity measueres",
-                                        plotOutput("BoxplotRichness")),
+                               tabPanel(title = "Diversity measures",
+                                        plotly::plotlyOutput("BoxplotRichness")),
                                tabPanel(title = "Grime values",
                                         plotOutput("GGTernPlot")))
         )
@@ -148,12 +150,24 @@ server <- function(input, output, session) {
 
      ## Plots
 
-     output$BoxplotRichness <- renderPlot({
-         ggplot(SelectedData()$Data, aes(x = "Plots", y = Richness)) +
+     output$BoxplotRichness <- plotly::renderPlotly({
+
+         Data <- SelectedData()$Data  %>%
+             as.data.frame() %>%
+             dplyr::select(-geometry, -Species) %>%
+             pivot_longer(cols = c("Richness", "Artsindex"), names_to = "Diversity")
+
+         G <- ggplot(Data, aes(x = "Plots", y = value)) +
              geom_boxplot() +
-             geom_jitter(aes(color = Data, alpha = 0.5)) +
-             labs(x = NULL) +
-             theme_bw()
+             geom_jitter(aes(color = Data), alpha = 0.5) +
+             labs(x = NULL,
+                  y = "Diversity estimate") +
+             theme_bw() +
+             facet_wrap(~Diversity, ncol = 1, scales = "free", strip.position = "right") +
+             theme(axis.title.y=element_blank(), axis.text.y=element_blank(),
+                   axis.ticks.y=element_blank())  +
+             ggplot2::coord_flip()
+         plotly::ggplotly(G)
      })
 
      output$BoxplotEllemberg <- plotly::renderPlotly({
