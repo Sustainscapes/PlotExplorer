@@ -18,6 +18,7 @@ library(ggtern)
 library(sf)
 library(forcats)
 library(tidyr)
+library(bookdown)
 
 Base <- readRDS("Base.rds")
 
@@ -32,6 +33,11 @@ ui <- fluidPage(
     # Sidebar with a slider input for number of bins
     sidebarLayout(
         sidebarPanel(
+          fileInput("file1", "Choose Excel File",
+                               multiple = FALSE,
+                               accept = c("text/csv",
+                                          "text/comma-separated-values,text/plain",
+                                          ".csv")),
             h2("Select your group"),
             selectInput("Group",
                         "Name of your group:",
@@ -183,7 +189,7 @@ server <- function(input, output, session) {
              labs(x = NULL,
                   y = "Ellemberg value") +
              theme_bw() +
-             facet_wrap(~Ellemberg, ncol = 1, scales = "free", strip.position = "right") +
+             facet_wrap(~Ellemberg, ncol = 1, strip.position = "right") +
              theme(axis.title.y=element_blank(), axis.text.y=element_blank(),
                    axis.ticks.y=element_blank())  +
              ggplot2::coord_flip()

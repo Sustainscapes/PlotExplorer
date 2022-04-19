@@ -53,7 +53,7 @@ Data <- params$Data %>% mutate(N_R = N/R) %>%
              theme(axis.title.y=element_blank(),
                    axis.text.y=element_blank(),
                    axis.ticks.y=element_blank()) +
-             facet_wrap(~Ellemberg, ncol = 1, scales = "free", strip.position = "right") +
+             facet_wrap(~Ellemberg, ncol = 1, strip.position = "right") +
              ggplot2::coord_flip()
 ```
 
