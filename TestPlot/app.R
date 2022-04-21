@@ -59,19 +59,29 @@ ui <- fluidPage(
         # Show a plot of the generated distribution
         mainPanel(
             shiny::tabsetPanel(tabPanel(title = "Map",
-                                        leaflet::leafletOutput("Map")),
+                                        leaflet::leafletOutput("Map"),
+                                        plotly::plotlyOutput("HabitatsPlot")),
                                tabPanel(title = "Ellenberg's Indicator Values",
                                         plotly::plotlyOutput(height = "600px", "BoxplotEllemberg")),
                                tabPanel(title = "Diversity measures",
                                         plotly::plotlyOutput("BoxplotRichness")),
                                tabPanel(title = "Grime values",
-                                        plotOutput("GGTernPlot")))
+                                        plotOutput(height = "600px","GGTernPlot")))
         )
     )
 )
 
 # Define server logic required to draw a histogram
 server <- function(input, output, session) {
+    ## Habitats UI
+    output$HabitatsPlot <- plotly::renderPlotly({
+      if(input$Comparison == "Distance"){
+        ggplot(SelectedData()$Data, aes(x = habitat_name)) +
+          geom_bar() +
+          theme_bw()
+      }
+    })
+
 
     ## Comparisons UI
 
@@ -143,7 +153,7 @@ server <- function(input, output, session) {
 
          l <- leaflet(data = SelectedData()$Data) %>%
              addTiles() %>%
-             leaflet::addCircleMarkers(color = ~factpal(Data), popup = ~SpeciesButton)
+             leaflet::addCircleMarkers(color = ~factpal(Data), popup = ~paste(SpeciesButton, "<br>Habitat type:", habitat_name))
 
          if(input$Comparison == "Distance"){
              l <- l %>% leaflet::addPolylines(data = SelectedData()$Buffer, color = "red",
