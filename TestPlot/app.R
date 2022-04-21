@@ -33,6 +33,7 @@ ui <- fluidPage(
     # Sidebar with a slider input for number of bins
     sidebarLayout(
         sidebarPanel(
+          shiny::includeHTML("DownloadTemplate.html"),
           fileInput("file1", "Choose Excel File",
                                multiple = FALSE,
                                accept = c("text/csv",

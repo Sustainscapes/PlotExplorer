@@ -1,0 +1,22 @@
+---
+output: html_fragment
+---
+
+```{r, echo = FALSE}
+library(downloadthis)
+```
+
+## Download template data
+
+To type in your data you can download the following template:
+
+```{r, echo = FALSE}
+downloadthis::download_file(path = "Template.xlsx",
+                            output_name = "primary",
+  button_label = "Download template file",
+  button_type = "danger",
+  has_icon = TRUE,
+  icon = "fa fa-save",
+  self_contained = FALSE)
+```
+
